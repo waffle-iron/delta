@@ -8,6 +8,7 @@
 # 0xdeadbeef -> multiboot checking failed
 # 0xdead1337 -> cpuid instruction is not supported
 # 0xdeadfeed -> extended cpuid instruction is not supported
+# 0xdeadf001 -> long mode is not available
 
 .section .text
 .code32
