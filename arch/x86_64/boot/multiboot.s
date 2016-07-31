@@ -12,17 +12,17 @@
 .section .multiboot
 .align 8
 multiboot_header:
-    .int multiboot_magic
-    .int multiboot_arch
+    .long multiboot_magic
+    .long multiboot_arch
 
     # header length
-    .int multiboot_footer - multiboot_header
+    .long multiboot_footer - multiboot_header
 
     # checksum (hack inside)
-    .int 0x100000000 - (multiboot_magic + multiboot_arch + (multiboot_footer - multiboot_header))
+    .long 0x100000000 - (multiboot_magic + multiboot_arch + (multiboot_footer - multiboot_header))
 
     # tag structure
-    .short 0 # type
-    .short 0 # flags
-    .int 0   # size
+    .word 0 # type
+    .word 0 # flags
+    .long 0   # size
 multiboot_footer:

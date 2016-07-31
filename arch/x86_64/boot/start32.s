@@ -113,5 +113,5 @@ gdt:
 gdt_end:
 
 gdt_ptr:
-    .short (gdt_end - gdt) - 1
+    .word (gdt_end - gdt) - 1
     .quad gdt
