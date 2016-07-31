@@ -87,6 +87,8 @@ start32:
     cmp $512, %ecx
     jne .map_p2_table
 
+.setup_long_mode:
+    lgdt gdt_ptr
     hlt
 
 .section .bss
@@ -101,3 +103,15 @@ p2_table:
 stack_bottom:
     .lcomm stack, 64
 stack_top:
+
+.section .rodata
+.align 8
+gdt:
+    .quad 0 # null segment
+    .quad 1 << 53 | 1 << 47 | 1 << 42 # code segment
+    .quad 1 << 47 # data segment
+gdt_end:
+
+gdt_ptr:
+    .short (gdt_end - gdt) - 1
+    .quad gdt
