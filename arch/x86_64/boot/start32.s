@@ -51,4 +51,14 @@ start32:
     hlt
 
 .longmode:
+    mov $0x80000001, %eax
+    cpuid
+
+    test $(1 << 29), %eax
+    jz .prepare_paging
+
+    mov $0xdeadf001, %eax
+    hlt
+
+.prepare_paging:
     hlt
