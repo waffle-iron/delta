@@ -1,3 +1,8 @@
+# Copyright (c) 2016 krycha
+# See the 'license' file at the root directory
+#
+# Makefile for delta x86_64
+
 arch := x86_64
 target := $(arch)-elf
 

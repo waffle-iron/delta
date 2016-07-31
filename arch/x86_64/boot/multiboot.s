@@ -1,8 +1,10 @@
 # Copyright (c) 2016 krycha
 # See the 'license' file at the root directory
-
+#
 # Multiboot specification ver. 1.6
 # http://nongnu.askapache.com/grub/phcoder/multiboot.pdf
+#
+# Multiboot header for proper load delta kernel
 
 .set multiboot_magic, 0xe85250d6 # magic number
 .set multiboot_arch, 0           # architecture code (i386 protected mode)
