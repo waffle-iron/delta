@@ -5,113 +5,148 @@
 # 64-bit long mode
 
 # Errors are reported in 'eax' register
-# 0xdeadbeef -> multiboot checking failed
-# 0xdead1337 -> cpuid instruction is not supported
-# 0xdeadfeed -> extended cpuid instruction is not supported
+# 0xdeadbeef -> multiboot magic number checking failed
+# 0xdeadc0de -> cpuid instruction is not supported
+# 0xdeadf00d -> extended cpuid instruction is not supported
 # 0xdeadf001 -> long mode is not available
+
+.global start32
 
 .section .text
 .code32
 
-.global start32
 start32:
 .multiboot:
-    mov $stack_top, %esp
+    # setup stack for boot time
+    movl $stack_top, %esp
 
-    cmp $0x36d76289, %eax
+    # check for magic number
+    cmpl $0x36d76289, %eax
     je .cpuid
 
-    mov $0xdeadbeef, %eax
+.no_multiboot:
+    movl $0xdeadbeef, %eax
     hlt
 
+# cpuid is supported if software can change 'id' bit
 .cpuid:
     pushfl
 
-    pop %eax
-    mov %eax, %ebx
+    popl %eax
+    movl %eax, %ebx
 
-    xor $(1 << 21), %eax
-    push %eax
+    xorl $(1 << 21), %eax
+    pushl %eax
 
     popfl
     pushfl
 
-    pop %eax
-    cmp %eax, %ebx
+    popl %eax
+    cmpl %eax, %ebx
     jne .extended_cpuid
 
-    mov $0xdead1337, %eax
+.no_cpuid:
+    movl $0xdeadc0de, %eax
     hlt
 
 .extended_cpuid:
-    mov $0x80000000, %eax
+    movl $0x80000000, %eax
     cpuid
 
-    cmp $0x80000001, %eax
+    cmpl $0x80000001, %eax
     jae .long_mode
 
-    mov $0xdeadfeed, %eax
+.no_extended_cpuid:
+    movl $0xdeadf00d, %eax
     hlt
 
 .long_mode:
-    mov $0x80000001, %eax
+    movl $0x80000001, %eax
     cpuid
 
-    test $(1 << 29), %eax
-    jz .prepare_paging
+    testl $(1 << 29), %edx
+    jnz .prepare_paging
 
-    mov $0xdeadf001, %eax
+.no_long_mode:
+    movl $0xdeadf001, %eax
     hlt
 
 .prepare_paging:
-    mov $p3_table, %eax
-    or $0b11, %eax
-    mov %eax, p4_table
+    movl $pdp, %eax
+    orl $0b11, %eax
+    movl %eax, pml4
 
-    mov $p2_table, %eax
-    or $0b11, %eax
-    mov %eax, p3_table
+    movl $pd, %eax
+    orl $0b11, %eax
+    movl %eax, pdp
 
-.map_p2_table_loop:
-    xor %ecx, %ecx
-    mov $p2_table, %edi
+.map_p2_table_prepare:
+    xorl %ebx, %ebx
+    xorl %ecx, %ecx
 
+    movl $pd, %edi
+
+# identity maping of 1gb
 .map_p2_table:
-    mov $0x200000, %eax
-    mul %ecx
+    orl $0b10000011, %ebx
+    movl %ebx, (%edi)
 
-    or $0b10000011, %eax
-    mov %eax, (%edi, %ecx, 8)
+    addl $0x200000, %ebx
+    addl $8, %edi
+    addl $1, %ecx
 
-    inc %ecx
-    cmp $512, %ecx
+    cmpl $0x200, %ecx
     jne .map_p2_table
 
 .setup_long_mode:
-    lgdt gdt_ptr
-    hlt
+    movl %cr4, %eax
+    orl $(1 << 5), %eax
+    movl %eax, %cr4
+
+    movl $pml4, %eax
+    movl %eax, %cr3
+
+    movl $0xc0000080, %ecx
+    rdmsr
+    orl $(1 << 8), %eax
+    wrmsr
+
+    movl %cr0, %eax
+    orl $(1 << 31), %eax
+    movl %eax, %cr0
+
+.heaven:
+    lgdt gdt64_ptr
+
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %ss
+    movw %ax, %es
+
+    # gas treat undefined symbols as extern
+    ljmp $0x8, $start64
 
 .section .bss
 .align 4096
-p4_table:
-    .lcomm p4, 4096
-p3_table:
-    .lcomm p3, 4096
-p2_table:
-    .lcomm p2, 4096
+pml4:
+    .space 4096
+pdp:
+    .space 4096
+pd:
+    .space 4096
 
 stack_bottom:
-    .lcomm stack, 64
+    .space 64
 stack_top:
 
 .section .rodata
 .align 8
-gdt:
+gdt64:
     .quad 0 # null segment
-    .quad 1 << 53 | 1 << 47 | 1 << 42 # code segment
-    .quad 1 << 47 # data segment
-gdt_end:
+    .quad (1 << 53) | (1 << 47) | (1 << 44) | (1 << 43) | (1 << 41) # code segment
+    .quad (1 << 47) | (1 << 44) | (1 << 41) # data segment
+gdt64_end:
 
-gdt_ptr:
-    .word (gdt_end - gdt) - 1
-    .quad gdt
+gdt64_ptr:
+    .word (gdt64_end - gdt64) - 1
+    .quad gdt64
